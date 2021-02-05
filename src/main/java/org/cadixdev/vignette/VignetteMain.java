@@ -12,6 +12,7 @@ import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import net.minecraftforge.lex.ParamClassRemapper;
 
 import org.cadixdev.atlas.Atlas;
 import org.cadixdev.bombe.asm.jar.JarEntryRemappingTransformer;
@@ -132,7 +133,7 @@ public final class VignetteMain {
                 atlas.install(ctx -> new JarEntryRemappingTransformer(new LorenzRemapper(
                         options.has(reverseSpec) ? mappings.reverse() : mappings,
                         ctx.inheritanceProvider()
-                )));
+                ), ParamClassRemapper.create(mappings, ctx.inheritanceProvider())));
 
                 atlas.run(jarInPath, jarOutPath);
             }

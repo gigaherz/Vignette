@@ -12,6 +12,8 @@ import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import net.minecraftforge.lex.ParamClassRemapper;
+
 import org.cadixdev.atlas.Atlas;
 import org.cadixdev.bombe.asm.jar.JarEntryRemappingTransformer;
 import org.cadixdev.lorenz.MappingSet;
@@ -52,6 +54,11 @@ public final class VignetteMain {
                 .withValuesConvertedBy(MappingFormatValueConverter.INSTANCE)
                 .defaultsTo(MappingFormats.SRG);
         final OptionSpec<Path> mappingsSpec = parser.acceptsAll(asList("mappings", "m"), "The mappings to remap with")
+                .withRequiredArg()
+                .withValuesConvertedBy(PathValueConverter.INSTANCE);
+        final OptionSpec<Integer> threadsSpec = parser.acceptsAll(asList("threads", "t"), "NUmber of threads to use when remapping")
+                .withRequiredArg().ofType(Integer.class);
+        final OptionSpec<Path> librarySpec = parser.acceptsAll(asList("library", "l"), "Library to add to the classpath for constructing inheritence")
                 .withRequiredArg()
                 .withValuesConvertedBy(PathValueConverter.INSTANCE);
 
@@ -107,11 +114,25 @@ public final class VignetteMain {
                 throw new RuntimeException("Failed to read input mappings!", ex);
             }
 
-            final Atlas atlas = new Atlas();
+            final Atlas atlas;
+            if (options.has(threadsSpec)) {
+                atlas = new Atlas(options.valueOf(threadsSpec));
+            } else {
+                atlas = new Atlas();
+            }
+
+            for (Path lib : options.valuesOf(librarySpec)) {
+                try {
+                    atlas.use(lib);
+                } catch (IOException ex) {
+                    throw new RuntimeException("Failed to read library!", ex);
+                }
+            }
+
             atlas.install(ctx -> new JarEntryRemappingTransformer(new LorenzRemapper(
                     mappings,
                     ctx.inheritanceProvider()
-            )));
+            ), ParamClassRemapper.create(mappings, ctx.inheritanceProvider())));
             try {
                 atlas.run(jarInPath, jarOutPath);
             }

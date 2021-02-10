@@ -3,6 +3,8 @@ plugins {
     id 'maven-publish'
 
     id 'com.github.johnrengelman.shadow' version '6.1.0'
+
+    id 'org.ajoberstar.grgit' version '4.1.0'
 }
 
 java {
@@ -13,9 +15,9 @@ java {
     withSourcesJar()
 }
 
-group = 'org.cadixdev'
+group = 'net.minecraftforge.lex' // Repackaged from 'org.cadixdev' to publish on Forge's Maven with out transformers
 archivesBaseName = project.name.toLowerCase()
-version = '0.2.0-SNAPSHOT'
+version = (grgit.describe(longDescr: true, tags: true) ?: 'unknown-unknown-unknown').split('-').with { "${it[0]}.${it[1]}" }
 
 repositories {
     mavenCentral()
@@ -30,6 +32,10 @@ dependencies {
 
 processResources {
     from 'LICENSE.txt'
+}
+
+shadowJar {
+  mergeServiceFiles()
 }
 
 jar {
@@ -70,6 +76,18 @@ publishing {
                     system = 'GitHub'
                     url = 'https://github.com/CadixDev/Vignette/issues'
                 }
+            
+            // Forge's maven
+            if (project.hasProperty('forgeMavenPassword')) {
+                repository(url: 'https://files.minecraftforge.net/maven/manage/upload') {
+                    authentication(
+                        userName: project.properties.forgeMavenUser,
+                        password: project.properties.forgeMavenPassword
+                    )
+                }
+            } else {
+                repository(url: 'file://' + rootProject.file('repo').getAbsolutePath())
+            }
 
                 licenses {
                     license {

@@ -12,12 +12,10 @@ import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import net.minecraftforge.lex.ParamClassRemapper;
+import net.minecraftforge.lex.EnhancedRemappingTransformer;
 
 import org.cadixdev.atlas.Atlas;
-import org.cadixdev.bombe.asm.jar.JarEntryRemappingTransformer;
 import org.cadixdev.lorenz.MappingSet;
-import org.cadixdev.lorenz.asm.LorenzRemapper;
 import org.cadixdev.lorenz.io.MappingFormat;
 import org.cadixdev.lorenz.io.MappingFormats;
 import org.cadixdev.vignette.util.MappingFormatValueConverter;
@@ -26,6 +24,10 @@ import org.cadixdev.vignette.util.PathValueConverter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * The Main-Class behind Vignette.
@@ -36,6 +38,7 @@ import java.nio.file.Path;
 public final class VignetteMain {
 
     public static void main(final String[] args) {
+
         final OptionParser parser = new OptionParser();
 
         // Modes
@@ -56,15 +59,18 @@ public final class VignetteMain {
         final OptionSpec<Path> mappingsSpec = parser.acceptsAll(asList("mappings", "m"), "The mappings to remap with")
                 .withRequiredArg()
                 .withValuesConvertedBy(PathValueConverter.INSTANCE);
+
+        // Optional Options
         final OptionSpec<Integer> threadsSpec = parser.acceptsAll(asList("threads", "t"), "NUmber of threads to use when remapping")
                 .withRequiredArg().ofType(Integer.class);
-        final OptionSpec<Path> librarySpec = parser.acceptsAll(asList("library", "l"), "Library to add to the classpath for constructing inheritence")
+        final OptionSpec<Path> librarySpec = parser.acceptsAll(asList("library", "l", "e"), "Library to add to the classpath for constructing inheritence")
                 .withRequiredArg()
                 .withValuesConvertedBy(PathValueConverter.INSTANCE);
+        final OptionSpec<Void> ffmetaSpec = parser.acceptsAll(asList("fernflower-meta", "f"), "Generate special metadata file for ForgeFlower that will name abstract method arguments during decompilation");
 
         final OptionSet options;
         try {
-            options = parser.parse(args);
+            options = parser.parse(enhanceArgs(args));
         }
         catch (final OptionException ex) {
             System.err.println("Failed to parse OptionSet! Exiting...");
@@ -96,6 +102,8 @@ public final class VignetteMain {
         else if (options.has(mappingsSpec) && options.has(jarInSpec) && options.has(jarOutSpec)) {
             final Path jarInPath = options.valueOf(jarInSpec);
             final Path jarOutPath = options.valueOf(jarOutSpec);
+            System.out.println("Input: " + jarInPath);
+            System.out.println("Output: " + jarOutPath);
             if (Files.notExists(jarInPath)) {
                 throw new RuntimeException("Input jar does not exist!");
             }
@@ -108,33 +116,29 @@ public final class VignetteMain {
 
             final MappingSet mappings;
             try {
-                 mappings = mappingFormat.read(mappingsPath);
+                System.out.println("Format: " + mappingFormat);
+                System.out.println("Mappings: " + mappingsPath);
+                mappings = mappingFormat.read(mappingsPath);
             }
             catch (final IOException ex) {
                 throw new RuntimeException("Failed to read input mappings!", ex);
             }
 
-            final Atlas atlas;
-            if (options.has(threadsSpec)) {
-                atlas = new Atlas(options.valueOf(threadsSpec));
-            } else {
-                atlas = new Atlas();
-            }
-
-            for (Path lib : options.valuesOf(librarySpec)) {
-                try {
-                    atlas.use(lib);
-                } catch (IOException ex) {
-                    throw new RuntimeException("Failed to read library!", ex);
+            try (Atlas atlas = options.has(threadsSpec) ? new Atlas(options.valueOf(threadsSpec)) : new Atlas()) {
+                for (Path lib : options.valuesOf(librarySpec)) {
+                    try {
+                        System.out.println("Library: " + lib);
+                        atlas.use(lib);
+                    } catch (IOException ex) {
+                        throw new RuntimeException("Failed to read library!", ex);
+                    }
                 }
-            }
 
-            atlas.install(ctx -> new JarEntryRemappingTransformer(new LorenzRemapper(
-                    mappings,
-                    ctx.inheritanceProvider()
-            ), ParamClassRemapper.create(mappings, ctx.inheritanceProvider())));
-            try {
+                atlas.install(ctx -> new EnhancedRemappingTransformer(mappings, ctx, options.has(ffmetaSpec)));
+
                 atlas.run(jarInPath, jarOutPath);
+
+                System.out.println("Processing Complete");
             }
             catch (final IOException ex) {
                 throw new RuntimeException("Failed to remap artifact!", ex);
@@ -150,6 +154,33 @@ public final class VignetteMain {
             }
             System.exit(-1);
         }
+    }
+
+    private static String[] enhanceArgs(String[] args) {
+        List<String> params = new ArrayList<>();
+        for (int x = 0; x < args.length; x++) {
+            if (args[x].startsWith("--cfg")) {
+                String path = null;
+                if (args[x].startsWith("--cfg="))
+                    path = args[x].substring(5);
+                else if (args.length > x+1)
+                    path = args[++x];
+                else
+                    throw new IllegalArgumentException("Must specify a file when using --cfg argument.");
+                Path file = Paths.get(path);
+
+                if (!Files.exists(file))
+                    throw new IllegalArgumentException("error: missing config '" + path + "'");
+
+                try (Stream<String> stream = Files.lines(file)) {
+                    stream.forEach(params::add);
+                } catch (IOException e) {
+                    throw new RuntimeException("error: Failed to read config file '" + path + "'", e);
+                }
+            } else
+                params.add(args[x]);
+        }
+        return params.toArray(new String[params.size()]);
     }
 
     private VignetteMain() {

@@ -10,7 +10,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.jar.Attributes;
 import java.util.stream.Collectors;
@@ -33,7 +33,7 @@ import org.objectweb.asm.commons.Remapper;
 
 public class EnhancedRemappingTransformer implements JarEntryTransformer, ExtendedClassRemapper.AbstractConsumer {
     private final boolean makeFFMeta;
-    private final Set<String> abstractParams = new TreeSet<>();
+    private final Set<String> abstractParams = ConcurrentHashMap.newKeySet();
 
     public EnhancedRemappingTransformer(MappingSet mappings, AtlasTransformerContext ctx, boolean makeFFMeta) {
         this.makeFFMeta = makeFFMeta;
@@ -46,7 +46,7 @@ public class EnhancedRemappingTransformer implements JarEntryTransformer, Extend
     public List<AbstractJarEntry> additions() {
         if (!makeFFMeta || abstractParams.isEmpty())
             return Collections.emptyList();
-        byte[] data = abstractParams.stream().collect(Collectors.joining("\n")).getBytes(StandardCharsets.UTF_8);
+        byte[] data = abstractParams.stream().sorted().collect(Collectors.joining("\n")).getBytes(StandardCharsets.UTF_8);
         return Arrays.asList(new JarResourceEntry("fernflower_abstract_parameter_names.txt", 1, data));
     }
 

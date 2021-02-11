@@ -12,6 +12,7 @@ import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import net.minecraftforge.lex.ConstructorInjector;
 import net.minecraftforge.lex.EnhancedRemappingTransformer;
 
 import org.cadixdev.atlas.Atlas;
@@ -61,12 +62,13 @@ public final class VignetteMain {
                 .withValuesConvertedBy(PathValueConverter.INSTANCE);
 
         // Optional Options
-        final OptionSpec<Integer> threadsSpec = parser.acceptsAll(asList("threads", "t"), "NUmber of threads to use when remapping")
+        final OptionSpec<Integer> threadsSpec = parser.acceptsAll(asList("threads", "t"), "Number of threads to use when remapping")
                 .withRequiredArg().ofType(Integer.class);
         final OptionSpec<Path> librarySpec = parser.acceptsAll(asList("library", "l", "e"), "Library to add to the classpath for constructing inheritence")
                 .withRequiredArg()
                 .withValuesConvertedBy(PathValueConverter.INSTANCE);
         final OptionSpec<Void> ffmetaSpec = parser.acceptsAll(asList("fernflower-meta", "f"), "Generate special metadata file for ForgeFlower that will name abstract method arguments during decompilation");
+        final OptionSpec<Void> ctrSpec = parser.acceptsAll(asList("create-inits", "c"), "Automatically inject synthetic <init> functions for classes with final fields and no constructors.");
 
         final OptionSet options;
         try {
@@ -135,6 +137,10 @@ public final class VignetteMain {
                 }
 
                 atlas.install(ctx -> new EnhancedRemappingTransformer(mappings, ctx, options.has(ffmetaSpec)));
+                if (options.has(ctrSpec)) {
+                    atlas.install(ctx -> new ConstructorInjector(ctx, mappings));
+                    System.out.println("Constructors");
+                }
 
                 atlas.run(jarInPath, jarOutPath);
 

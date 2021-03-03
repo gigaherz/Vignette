@@ -14,6 +14,7 @@ import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import net.minecraftforge.lex.ConstructorInjector;
 import net.minecraftforge.lex.EnhancedRemappingTransformer;
+import net.minecraftforge.lex.ParameterAnnotationFixer;
 
 import org.cadixdev.atlas.Atlas;
 import org.cadixdev.lorenz.MappingSet;
@@ -71,6 +72,7 @@ public final class VignetteMain {
                 .withValuesConvertedBy(PathValueConverter.INSTANCE);
         final OptionSpec<Void> ffmetaSpec = parser.acceptsAll(asList("fernflower-meta", "f"), "Generate special metadata file for ForgeFlower that will name abstract method arguments during decompilation");
         final OptionSpec<Void> ctrSpec = parser.acceptsAll(asList("create-inits", "c"), "Automatically inject synthetic <init> functions for classes with final fields and no constructors.");
+        final OptionSpec<Void> parAnnSpec = parser.acceptsAll(asList("fix-param-annotations", "p"), "Attempts to fix parameter annotations that get shifted due to the compiler injecting synthetics");
 
         final OptionSet options;
         try {
@@ -144,6 +146,10 @@ public final class VignetteMain {
                 if (options.has(ctrSpec)) {
                     atlas.install(ctx -> new ConstructorInjector(ctx, mappings));
                     System.out.println("Constructors");
+                }
+                if (options.has(parAnnSpec)) {
+                    atlas.install(ctx -> new ParameterAnnotationFixer());
+                    System.out.println("Parameter Annotations");
                 }
 
                 atlas.run(jarInPath, jarOutPath);

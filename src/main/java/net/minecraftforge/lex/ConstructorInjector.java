@@ -51,7 +51,7 @@ public class ConstructorInjector implements JarEntryTransformer {
         private Map<String, FieldType> fields = new LinkedHashMap<>();
 
         public InitAdder(ClassVisitor cv) {
-            super(ASM7, cv);
+            super(ASM9, cv);
         }
 
         private void log(String message) {

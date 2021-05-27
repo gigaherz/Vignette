@@ -33,6 +33,7 @@ dependencies {
     compile "org.cadixdev:lorenz:$lorenzVersion"
     compile "org.cadixdev:lorenz-asm:$lorenzVersion"
     compile 'net.sf.jopt-simple:jopt-simple:5.0.4'
+    compile 'org.ow2.asm:asm-commons:9.1'
 }
 
 processResources {
@@ -94,11 +95,11 @@ uploadArchives {
             }
             
             // Forge's maven
-            if (project.hasProperty('forgeMavenPassword')) {
-                repository(url: 'https://files.minecraftforge.net/maven/manage/upload') {
+            if (System.env.MAVEN_USER) {
+                repository(url: 'https://maven.minecraftforge.net/') {
                     authentication(
-                        userName: project.properties.forgeMavenUser,
-                        password: project.properties.forgeMavenPassword
+                        userName: System.env.MAVEN_USER ?: 'not',
+                        password: System.env.MAVEN_PASSWORD ?: 'set'
                     )
                 }
             } else {

@@ -31,7 +31,7 @@ public class ParameterAnnotationFixer implements JarEntryTransformer {
         private final ClassNode node;
 
         public Visitor(ClassNode cn) {
-            super(Opcodes.ASM7, cn);
+            super(Opcodes.ASM9, cn);
             this.node = cn;
         }
 
